@@ -2,10 +2,10 @@ terraform {
   # Assumes s3 bucket and dynamo DB table already set up
   # See /code/03-basics/aws-backend
   backend "s3" {
-    bucket         = "devops-directive-tf-state"
+    bucket         = "devops-directive-tf-state-custom-aum-test"
     key            = "03-basics/web-app/terraform.tfstate"
     region         = "us-east-1"
-    dynamodb_table = "terraform-state-locking"
+    use_lockfile = true
     encrypt        = true
   }
 
@@ -86,6 +86,41 @@ resource "aws_security_group_rule" "allow_http_inbound" {
   cidr_blocks = ["0.0.0.0/0"]
 }
 
+resource "aws_security_group" "alb" {
+  name = "alb-security-group"
+}
+
+resource "aws_security_group_rule" "allow_alb_http_inbound" {
+  type              = "ingress"
+  security_group_id = aws_security_group.alb.id
+
+  from_port   = 80
+  to_port     = 80
+  protocol    = "tcp"
+  cidr_blocks = ["0.0.0.0/0"]
+
+}
+
+resource "aws_security_group_rule" "allow_alb_all_outbound" {
+  type              = "egress"
+  security_group_id = aws_security_group.alb.id
+
+  from_port   = 0
+  to_port     = 0
+  protocol    = "-1"
+  cidr_blocks = ["0.0.0.0/0"]
+
+}
+
+
+resource "aws_lb" "load_balancer" {
+  name               = "web-app-lb"
+  load_balancer_type = "application"
+  subnets            = data.aws_subnet_ids.default_subnet.ids
+  security_groups    = [aws_security_group.alb.id]
+
+}
+
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.load_balancer.arn
 
@@ -148,42 +183,6 @@ resource "aws_lb_listener_rule" "instances" {
     type             = "forward"
     target_group_arn = aws_lb_target_group.instances.arn
   }
-}
-
-
-resource "aws_security_group" "alb" {
-  name = "alb-security-group"
-}
-
-resource "aws_security_group_rule" "allow_alb_http_inbound" {
-  type              = "ingress"
-  security_group_id = aws_security_group.alb.id
-
-  from_port   = 80
-  to_port     = 80
-  protocol    = "tcp"
-  cidr_blocks = ["0.0.0.0/0"]
-
-}
-
-resource "aws_security_group_rule" "allow_alb_all_outbound" {
-  type              = "egress"
-  security_group_id = aws_security_group.alb.id
-
-  from_port   = 0
-  to_port     = 0
-  protocol    = "-1"
-  cidr_blocks = ["0.0.0.0/0"]
-
-}
-
-
-resource "aws_lb" "load_balancer" {
-  name               = "web-app-lb"
-  load_balancer_type = "application"
-  subnets            = data.aws_subnet_ids.default_subnet.ids
-  security_groups    = [aws_security_group.alb.id]
-
 }
 
 resource "aws_route53_zone" "primary" {
