@@ -1,8 +1,19 @@
+# Latest Ubuntu 24.04 LTS AMI
+data "aws_ami" "ubuntu" {
+  most_recent = true
+  owners      = ["099720109477"] # Canonical
+
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*"]
+  }
+}
+
 resource "aws_instance" "instance" {
-  ami             = "ami-011899242bb902164" # Ubuntu 20.04 LTS // us-east-1
-  instance_type   = "t2.micro"
-  security_groups = [aws_security_group.instances.name]
-  user_data       = <<-EOF
+  ami                    = data.aws_ami.ubuntu.id
+  instance_type          = "t3.micro"
+  vpc_security_group_ids = [aws_security_group.instances.id]
+  user_data              = <<-EOF
               #!/bin/bash
               echo "Hello, World" > index.html
               python3 -m http.server 8080 &

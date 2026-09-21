@@ -1,18 +1,20 @@
 terraform {
-  # Assumes s3 bucket and dynamo DB table already set up
+  required_version = ">= 1.10"
+
+  # Assumes the s3 bucket is already set up
   # See /code/03-basics/aws-backend
   backend "s3" {
-    bucket         = "devops-directive-tf-state-custom-aum-test"
-    key            = "04-variables-and-outputs/web-app/terraform.tfstate"
-    region         = "us-east-1"
+    bucket       = "devops-directive-tf-state-custom-aum-test"
+    key          = "04-variables-and-outputs/web-app/terraform.tfstate"
+    region       = "us-east-1"
     use_lockfile = true
-    encrypt        = true
+    encrypt      = true
   }
 
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 3.0"
+      version = "~> 6.0"
     }
   }
 }
@@ -22,11 +24,22 @@ provider "aws" {
   region = var.region
 }
 
+# Latest Ubuntu 24.04 LTS AMI, used unless var.ami is set
+data "aws_ami" "ubuntu" {
+  most_recent = true
+  owners      = ["099720109477"] # Canonical
+
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*"]
+  }
+}
+
 resource "aws_instance" "instance_1" {
-  ami             = var.ami
-  instance_type   = var.instance_type
-  security_groups = [aws_security_group.instances.name]
-  user_data       = <<-EOF
+  ami                    = coalesce(var.ami, data.aws_ami.ubuntu.id)
+  instance_type          = var.instance_type
+  vpc_security_group_ids = [aws_security_group.instances.id]
+  user_data              = <<-EOF
               #!/bin/bash
               echo "Hello, World 1" > index.html
               python3 -m http.server 8080 &
@@ -34,10 +47,10 @@ resource "aws_instance" "instance_1" {
 }
 
 resource "aws_instance" "instance_2" {
-  ami             = var.ami
-  instance_type   = var.instance_type
-  security_groups = [aws_security_group.instances.name]
-  user_data       = <<-EOF
+  ami                    = coalesce(var.ami, data.aws_ami.ubuntu.id)
+  instance_type          = var.instance_type
+  vpc_security_group_ids = [aws_security_group.instances.id]
+  user_data              = <<-EOF
               #!/bin/bash
               echo "Hello, World 2" > index.html
               python3 -m http.server 8080 &
@@ -57,7 +70,7 @@ resource "aws_s3_bucket_versioning" "bucket_versioning" {
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "bucket_crypto_conf" {
-  bucket = aws_s3_bucket.bucket.bucket
+  bucket = aws_s3_bucket.bucket.id
   rule {
     apply_server_side_encryption_by_default {
       sse_algorithm = "AES256"
@@ -69,8 +82,11 @@ data "aws_vpc" "default_vpc" {
   default = true
 }
 
-data "aws_subnet_ids" "default_subnet" {
-  vpc_id = data.aws_vpc.default_vpc.id
+data "aws_subnets" "default_subnets" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default_vpc.id]
+  }
 }
 
 resource "aws_security_group" "instances" {
@@ -81,10 +97,10 @@ resource "aws_security_group_rule" "allow_http_inbound" {
   type              = "ingress"
   security_group_id = aws_security_group.instances.id
 
-  from_port   = 8080
-  to_port     = 8080
-  protocol    = "tcp"
-  cidr_blocks = ["0.0.0.0/0"]
+  from_port                = 8080
+  to_port                  = 8080
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.alb.id # only the ALB can reach the instances
 }
 
 resource "aws_lb_listener" "http" {
@@ -182,7 +198,7 @@ resource "aws_security_group_rule" "allow_alb_all_outbound" {
 resource "aws_lb" "load_balancer" {
   name               = "web-app-lb"
   load_balancer_type = "application"
-  subnets            = data.aws_subnet_ids.default_subnet.ids
+  subnets            = data.aws_subnets.default_subnets.ids
   security_groups    = [aws_security_group.alb.id]
 
 }
@@ -205,11 +221,11 @@ resource "aws_route53_record" "root" {
 
 resource "aws_db_instance" "db_instance" {
   allocated_storage   = 20
-  storage_type        = "standard"
+  storage_type        = "gp3"
   engine              = "postgres"
-  engine_version      = "12"
-  instance_class      = "db.t2.micro"
-  name                = var.db_name
+  engine_version      = "16"
+  instance_class      = "db.t4g.micro"
+  db_name             = var.db_name
   username            = var.db_user
   password            = var.db_pass
   skip_final_snapshot = true

@@ -1,18 +1,20 @@
 terraform {
-  # Assumes s3 bucket and dynamo DB table already set up
+  required_version = ">= 1.10"
+
+  # Assumes the s3 bucket is already set up
   # See /code/03-basics/aws-backend
   backend "s3" {
-    bucket         = "devops-directive-tf-state-custom-aum-test"
-    key            = "07-managing-multiple-environments/workspaces/terraform.tfstate"
-    region         = "us-east-1"
+    bucket       = "devops-directive-tf-state-custom-aum-test"
+    key          = "07-managing-multiple-environments/workspaces/terraform.tfstate"
+    region       = "us-east-1"
     use_lockfile = true
-    encrypt        = true
+    encrypt      = true
   }
 
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 3.0"
+      version = "~> 6.0"
     }
   }
 }
@@ -38,7 +40,7 @@ module "web_app" {
   bucket_prefix    = "web-app-data-${local.environment_name}"
   domain           = "devopsdeployed.com"
   environment_name = local.environment_name
-  instance_type    = "t2.micro"
+  instance_type    = "t3.micro"
   create_dns_zone  = terraform.workspace == "production" ? true : false
   db_name          = "${local.environment_name}mydb"
   db_user          = "foo"

@@ -1,18 +1,20 @@
 terraform {
-  # Assumes s3 bucket and dynamo DB table already set up
+  required_version = ">= 1.10"
+
+  # Assumes the s3 bucket is already set up
   # See /code/03-basics/aws-backend
   backend "s3" {
-    bucket         = "devops-directive-tf-state-custom-aum-test"
-    key            = "07-managing-multiple-environments/global/terraform.tfstate"
-    region         = "us-east-1"
+    bucket       = "devops-directive-tf-state-custom-aum-test"
+    key          = "07-managing-multiple-environments/global/terraform.tfstate"
+    region       = "us-east-1"
     use_lockfile = true
-    encrypt        = true
+    encrypt      = true
   }
 
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 3.0"
+      version = "~> 6.0"
     }
   }
 }

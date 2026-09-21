@@ -1,18 +1,23 @@
 terraform {
-  # Assumes s3 bucket and dynamo DB table already set up
+  required_version = ">= 1.10"
+
+  # Assumes the s3 bucket is already set up
   # See /code/03-basics/aws-backend
   backend "s3" {
-    bucket         = "devops-directive-tf-state-custom-aum-test"
-    key            = "06-organization-and-modules/consul/terraform.tfstate"
-    region         = "us-east-1"
+    bucket       = "devops-directive-tf-state-custom-aum-test"
+    key          = "06-organization-and-modules/consul/terraform.tfstate"
+    region       = "us-east-1"
     use_lockfile = true
-    encrypt        = true
+    encrypt      = true
   }
 
   required_providers {
     aws = {
-      source  = "hashicorp/aws"
-      version = "~> 3.0"
+      source = "hashicorp/aws"
+      # The consul module below is archived and still uses the aws_subnet_ids
+      # data source, which was removed in provider 5.0. Stay on 4.x until
+      # the module is replaced.
+      version = "~> 4.0"
     }
   }
 }
@@ -32,5 +37,5 @@ provider "aws" {
 ##
 ############################################################
 module "consul" {
-  source = "git@github.com:hashicorp/terraform-aws-consul.git"
+  source = "git::https://github.com/hashicorp/terraform-aws-consul.git" # https, so no SSH key is needed
 }

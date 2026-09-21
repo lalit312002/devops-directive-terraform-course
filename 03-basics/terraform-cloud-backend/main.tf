@@ -1,5 +1,7 @@
 terraform {
-  backend "remote" {
+  required_version = ">= 1.10"
+
+  cloud {
     organization = "devops-directive"
 
     workspaces {
@@ -10,7 +12,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 3.0"
+      version = "~> 6.0"
     }
   }
 }
