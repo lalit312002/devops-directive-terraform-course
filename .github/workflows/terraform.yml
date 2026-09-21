@@ -21,12 +21,12 @@ jobs:
         working-directory: 07-managing-multiple-environments/file-structure/staging
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v1
+        uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.0.1
+          terraform_version: 1.10.5
           terraform_wrapper: false
 
       - name: Terraform Format
@@ -44,7 +44,7 @@ jobs:
         run: terraform plan -var db_pass=${{secrets.DB_PASS }} -no-color
         continue-on-error: true
 
-      - uses: actions/github-script@0.9.0
+      - uses: actions/github-script@v7
         if: github.event_name == 'pull_request'
         env:
           PLAN: "terraform\n${{ steps.plan.outputs.stdout }}"
@@ -64,7 +64,7 @@ jobs:
             *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
 
               
-            github.issues.createComment({
+            github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -75,22 +75,22 @@ jobs:
         if: steps.plan.outcome == 'failure'
         run: exit 1
 
-      - uses: actions/setup-go@v2
+      - uses: actions/setup-go@v5
         with:
-          go-version: '^1.15.5'
+          go-version-file: 08-testing/tests/terratest/go.mod
           
       - name : Terratest Execution
         if: github.event_name == 'pull_request'
         working-directory: 08-testing/tests/terratest
         run: |
-          go test . -v timeout 10m
+          go test . -v -timeout 10m
 
       - name: Check tag
         id: check-tag
         run: |
-          if [[ ${{ github.ref }} =~ ^refs\/tags\/v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then echo ::set-output name=environment::production
-          elif [[ ${{ github.ref }} == 'refs/heads/main' ]]; then echo ::set-output name=environment::staging
-          else echo ::set-output name=environment::unknown
+          if [[ ${{ github.ref }} =~ ^refs\/tags\/v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then echo "environment=production" >> "$GITHUB_OUTPUT"
+          elif [[ ${{ github.ref }} == 'refs/heads/main' ]]; then echo "environment=staging" >> "$GITHUB_OUTPUT"
+          else echo "environment=unknown" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Terraform Apply Global
