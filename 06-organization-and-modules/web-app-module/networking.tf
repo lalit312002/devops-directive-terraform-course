@@ -23,6 +23,42 @@ resource "aws_security_group_rule" "allow_http_inbound" {
   source_security_group_id = aws_security_group.alb.id # only the ALB can reach the instances
 }
 
+
+resource "aws_security_group" "alb" {
+  name = "${var.app_name}-${var.environment_name}-alb-security-group"
+}
+
+resource "aws_security_group_rule" "allow_alb_http_inbound" {
+  type              = "ingress"
+  security_group_id = aws_security_group.alb.id
+
+  from_port   = 80
+  to_port     = 80
+  protocol    = "tcp"
+  cidr_blocks = ["0.0.0.0/0"]
+
+}
+
+resource "aws_security_group_rule" "allow_alb_all_outbound" {
+  type              = "egress"
+  security_group_id = aws_security_group.alb.id
+
+  from_port   = 0
+  to_port     = 0
+  protocol    = "-1"
+  cidr_blocks = ["0.0.0.0/0"]
+
+}
+
+
+resource "aws_lb" "load_balancer" {
+  name               = "${var.app_name}-${var.environment_name}-web-app-lb"
+  load_balancer_type = "application"
+  subnets            = data.aws_subnets.default_subnets.ids
+  security_groups    = [aws_security_group.alb.id]
+
+}
+
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.load_balancer.arn
 
@@ -87,38 +123,3 @@ resource "aws_lb_listener_rule" "instances" {
   }
 }
 
-
-resource "aws_security_group" "alb" {
-  name = "${var.app_name}-${var.environment_name}-alb-security-group"
-}
-
-resource "aws_security_group_rule" "allow_alb_http_inbound" {
-  type              = "ingress"
-  security_group_id = aws_security_group.alb.id
-
-  from_port   = 80
-  to_port     = 80
-  protocol    = "tcp"
-  cidr_blocks = ["0.0.0.0/0"]
-
-}
-
-resource "aws_security_group_rule" "allow_alb_all_outbound" {
-  type              = "egress"
-  security_group_id = aws_security_group.alb.id
-
-  from_port   = 0
-  to_port     = 0
-  protocol    = "-1"
-  cidr_blocks = ["0.0.0.0/0"]
-
-}
-
-
-resource "aws_lb" "load_balancer" {
-  name               = "${var.app_name}-${var.environment_name}-web-app-lb"
-  load_balancer_type = "application"
-  subnets            = data.aws_subnets.default_subnets.ids
-  security_groups    = [aws_security_group.alb.id]
-
-}
